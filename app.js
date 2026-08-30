@@ -7,6 +7,7 @@
 
     var state = {
         mode: "reinforce",
+        questionStyle: "mode-default",
         domain: "domain1",
         domains: ["domain1"],
         sessionQuestions: [],
@@ -111,6 +112,7 @@
         els.resumeButton = document.getElementById("resume-button");
         els.statisticsButton = document.getElementById("statistics-button");
         els.practiceLength = document.getElementById("practice-length");
+        els.questionStyle = document.getElementById("question-style");
         els.difficultyFilter = document.getElementById("difficulty-filter");
         els.sprintLength = document.getElementById("sprint-length");
         els.questionHeading = document.getElementById("question-heading");
@@ -215,6 +217,12 @@
         document.addEventListener("keydown", modalKeyboardCapture, true);
         document.addEventListener("keydown", handleKeyboard);
         els.practiceLength.addEventListener("change", saveState);
+        if (els.questionStyle) {
+            els.questionStyle.addEventListener("change", function () {
+                state.questionStyle = els.questionStyle.value;
+                saveState();
+            });
+        }
         els.difficultyFilter.addEventListener("change", saveState);
         if (els.sprintLength) {
             els.sprintLength.addEventListener("change", saveState);
@@ -280,6 +288,9 @@
         getDomainInputs().forEach(function (input) {
             input.checked = state.domains.indexOf(input.value) !== -1;
         });
+        if (els.questionStyle) {
+            els.questionStyle.value = state.questionStyle || "mode-default";
+        }
     }
 
     function getDomainTitle(domainId) {
@@ -360,20 +371,48 @@
         if (checkedMode) {
             state.mode = checkedMode.value;
         }
+        if (els.questionStyle) {
+            state.questionStyle = els.questionStyle.value;
+        }
         state.domains = selectedDomains;
         state.domain = selectedDomains[0];
     }
 
     function getAvailableQuestions() {
         var difficulty = els.difficultyFilter ? els.difficultyFilter.value : "all";
+        var questionStyle = state.questionStyle || "mode-default";
         var selectedDomains = Array.isArray(state.domains) && state.domains.length ? state.domains : [state.domain || "domain1"];
-        return WCAG_LAB_DATA.questions.filter(function (question) {
+        var questions;
+
+        if (questionStyle === "sc-to-definition") {
+            questions = buildDefinitionChoiceQuestions();
+        } else {
+            questions = WCAG_LAB_DATA.questions.slice();
+        }
+
+        return questions.filter(function (question) {
             if (selectedDomains.indexOf(question.domain) === -1) {
                 return false;
             }
-            if (state.mode !== "sprint" && question.mode !== state.mode) {
-                return false;
+
+            if (questionStyle === "mode-default") {
+                if (state.mode !== "sprint" && question.mode !== state.mode) {
+                    return false;
+                }
+            } else if (questionStyle === "definition-to-sc") {
+                if (question.questionType !== "Recall") {
+                    return false;
+                }
+            } else if (questionStyle === "sc-to-definition") {
+                if (question.questionType !== "Definition Recognition") {
+                    return false;
+                }
+            } else if (questionStyle === "scenarios") {
+                if (question.questionType === "Recall" || question.questionType === "Recognition" || question.questionType === "Definition Recognition") {
+                    return false;
+                }
             }
+
             if (difficulty === "all" || difficulty === "mixed") {
                 return true;
             }
@@ -381,6 +420,66 @@
         });
     }
 
+    function buildDefinitionChoiceQuestions() {
+        var criteriaByNumber = {};
+        var recallByNumber = {};
+
+        (window.WCAG_DATA || []).forEach(function (criterion) {
+            criteriaByNumber[criterion.scNumber] = criterion;
+        });
+
+        WCAG_LAB_DATA.questions.forEach(function (question) {
+            if (question.questionType === "Recall" && !recallByNumber[question.scNumber]) {
+                recallByNumber[question.scNumber] = question;
+            }
+        });
+
+        return Object.keys(recallByNumber).map(function (scNumber) {
+            var source = recallByNumber[scNumber];
+            var criterion = criteriaByNumber[scNumber];
+            var candidates;
+            var distractors;
+            var correctDefinition;
+
+            if (!criterion) {
+                return null;
+            }
+
+            correctDefinition = criterion.shortDescription || criterion.description;
+            candidates = (window.WCAG_DATA || []).filter(function (item) {
+                return item.scNumber !== scNumber && item.principle === criterion.principle;
+            });
+            if (candidates.length < 3) {
+                candidates = (window.WCAG_DATA || []).filter(function (item) {
+                    return item.scNumber !== scNumber;
+                });
+            }
+            distractors = shuffle(candidates).slice(0, 3).map(function (item) {
+                return item.shortDescription || item.description;
+            });
+
+            return {
+                domain: source.domain,
+                lesson: source.lesson,
+                learningObjective: "Identify the definition of WCAG " + criterion.scNumber + " " + criterion.scName,
+                level: criterion.level,
+                principle: criterion.principle,
+                guideline: criterion.guideline,
+                scNumber: criterion.scNumber,
+                scName: criterion.scName,
+                id: "WCAG" + criterion.scNumber.replace(/\./g, "") + "DEF",
+                difficulty: source.difficulty || "easy",
+                mode: source.mode || "reinforce",
+                question: "Which definition matches WCAG " + criterion.scNumber + " " + criterion.scName + "?",
+                choices: [correctDefinition].concat(distractors),
+                answer: 0,
+                explanation: "WCAG " + criterion.scNumber + " " + criterion.scName + " requires: " + correctDefinition,
+                questionType: "Definition Recognition"
+            };
+        }).filter(function (question) {
+            return Boolean(question);
+        });
+    }
 
     function randomizeChoiceOrder(question) {
         var correctChoice;
@@ -1950,6 +2049,7 @@
             }
             saved = JSON.parse(raw);
             state.mode = saved.mode || state.mode;
+            state.questionStyle = saved.questionStyle || state.questionStyle;
             state.domain = saved.domain || state.domain;
             state.domains = Array.isArray(saved.domains) && saved.domains.length ? saved.domains : (saved.domain ? [saved.domain] : state.domains);
             state.sessionQuestions = Array.isArray(saved.sessionQuestions) ? saved.sessionQuestions : [];

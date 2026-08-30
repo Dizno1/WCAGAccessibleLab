@@ -425,3 +425,15 @@ This fix has not been confirmed with JAWS, NVDA, or VoiceOver. The automated evi
 1. **Manual JAWS retest of the exact original scenario**: complete a real session with some questions missed, confirm the result is announced once, turn the Virtual Cursor on, and navigate through the entire completed Lab Home interface - mode radios, WCAG principle checkboxes, all Setup panel buttons - confirming no trace of the completion text anywhere. Repeat for Sprint completion.
 2. **If the contamination still reproduces on a real screen reader** even with this fix in place, that would mean the "still-flushing at navigation time" explanation was wrong, and the actual mechanism is something this session's DOM/ARIA-level investigation didn't surface - worth revisiting with the specific screen reader/browser combination and JAWS version in use, since this can be a version-specific behavior.
 3. **Content expansion (Expansion 8 and beyond)** remains paused pending that manual confirmation, per the explicit instruction that this bug fix takes priority.
+
+## Question Style restoration
+
+The Lab again supports deliberate WCAG learning in both directions before scenario practice. The Question Style control provides:
+
+- Learning Mode Default - preserves the existing Reinforce, Practice, Challenge, and Sprint question selection behavior.
+- Success Criterion from Definition - presents a WCAG requirement and asks the learner to identify the matching Success Criterion.
+- Definition from Success Criterion - presents the Success Criterion number and name and asks the learner to identify its definition. These reverse questions are generated from the canonical WCAG data already included in the Lab.
+- Scenarios - uses application and professional workflow questions while excluding basic recall and recognition items.
+- Mixed - draws from the complete question bank.
+
+Question Style is independent of the selected WCAG Principles and difficulty filter. Sprint timing remains available with any Question Style.

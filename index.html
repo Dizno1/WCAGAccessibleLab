@@ -26,6 +26,7 @@
             <h3>Starting a session</h3>
             <ol>
                 <li>Select a learning mode.</li>
+                <li>Select a question style. Learning Mode Default preserves the original Reinforce, Practice, Challenge, and Sprint behavior.</li>
                 <li>Select one or more WCAG principles.</li>
                 <li>Select the number of questions, or Sprint time when using Sprint mode.</li>
                 <li>Activate Start Lab Session.</li>
@@ -78,6 +79,15 @@
                 <label><input type="radio" name="mode" value="practice"> Practice</label>
                 <label><input type="radio" name="mode" value="challenge"> Challenge</label><label><input type="radio" name="mode" value="sprint"> Sprint</label>
             </fieldset>
+
+            <label for="question-style">Question Style</label>
+            <select id="question-style">
+                <option value="mode-default" selected>Learning Mode Default</option>
+                <option value="definition-to-sc">Success Criterion from Definition</option>
+                <option value="sc-to-definition">Definition from Success Criterion</option>
+                <option value="scenarios">Scenarios</option>
+                <option value="mixed">Mixed</option>
+            </select>
 
             <fieldset class="principle-options">
                 <legend>Choose WCAG Principles</legend>
