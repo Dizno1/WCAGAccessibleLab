@@ -371,3 +371,57 @@ Two defensible directions, not mutually exclusive:
 
 Either is a reasonable next step; what matters is starting from a fresh dashboard run rather than this README's now-fixed snapshot, since coverage numbers are the one thing in this document guaranteed to be out of date the moment new content is added.
 
+## Accessibility Bug Fix: Session-Completion Announcement Contamination (This Session)
+
+This session was a bug-fix session, not a content-expansion session, per explicit instruction to prioritize it over further question-bank work (no Expansion 8 was added). No question data, industry family, or workflow family was touched. Only `app.js` changed.
+
+### The report
+
+Real JAWS testing of a completed 20-question Reinforce session found two related problems:
+
+1. **Duplicate announcement at completion.** JAWS announced "Session complete. You answered 16 correct and 4 incorrect in this session." followed by "Review Missed Questions is available." followed by "Session complete. You answered 16 correct and 4 incorrect in this session." again.
+2. **Repeated contamination while navigating afterward.** With the Virtual Cursor turned back on, moving through the completed Lab Home page produced the completion text prefixed onto unrelated controls - "Session complete... Button expanded," "Session complete... radio button not checked, 1 of 4" - while tabbing through the Choose A Learning Mode radio group and other controls.
+
+The instruction was explicit: investigate the actual ARIA/accessible-name implementation before changing anything, not merely "reduce verbosity."
+
+### What the investigation found
+
+**Confirmed, root-caused, and fixed:** `completeSprint()` had already been fixed for exactly this duplicate-announcement pattern in a prior session (see "Sprint Mode Accessibility Refinement" above - item 5, "Completion announcement combined into one"). That fix consolidated Sprint's completion message onto a single live region and stopped focusing the live region directly. **That fix was never applied to `completeSession()` - the regular, non-Sprint completion path, which is what the reported 20-question session actually used - or to `showStoredResults()`**, the function that rebuilds the completed-results screen when returning from Review Missed Questions (via Escape) or restoring a completed session from saved state. Both had the identical unfixed pattern: two separate `aria-live="polite"` regions (`#feedback` and `#advance-status`) populated with overlapping text at the same moment, and focus moved directly onto `#feedback` immediately afterward - which causes a screen reader to announce that live region's content a second time via the focus event, on top of the live-region announcement itself. That fully accounts for the reported triple repeat: results (live-region announcement) - review availability (second live-region announcement) - results again (focus-triggered re-read of `#feedback`, whose content was the results text).
+
+**Specifically investigated and ruled out**, per the explicit checklist in the report:
+- `aria-describedby` / `aria-labelledby`: searched every occurrence in `index.html` and every `setAttribute("aria-describedby"/"aria-labelledby", ...)` call in `app.js`. None reference `#feedback` or `#advance-status` from the mode radios, the Choose A Learning Mode fieldset, or any Setup panel button.
+- Duplicate or reused IDs: none found anywhere in the document, including inside dynamically-generated `innerHTML` content (choices, review content, statistics).
+- Any JS path that copies `state.lastResultsText` / `state.lastResultsStatus` into another element's `aria-label`, `aria-describedby`, or text content: none found. The only writers of these two state fields are `completeSession()`, `completeSprint()`, and `showStoredResults()`, and the only elements they write into are `#feedback` and `#advance-status`.
+- A change handler on the mode radios or domain checkboxes that re-touches `#feedback`/`#advance-status`: checked directly: it does not.
+
+**Not confirmed with certainty:** a specific mechanism by which the completion text would become part of an unrelated control's accessible *name* (as opposed to being announced as a separate, adjacent event). No such mechanism exists in the DOM or ARIA wiring. The leading, evidence-consistent explanation is that the triple-fire described above was still queued or mid-flush in JAWS at the moment the Virtual Cursor was turned back on and navigation began, making the tail of that single event sound like ongoing contamination rather than one already-finished occurrence. This is a plausible account, not a claim of certainty - see Remaining Work below.
+
+### The fix
+
+Applied the same pattern already proven correct for Sprint mode to `completeSession()` and `showStoredResults()`, and hardened `completeSprint()`'s remaining edge case:
+
+1. **One combined message, one live region.** All three functions now build a single string - results plus review-availability guidance - and set it once on `#feedback`. `#advance-status` is explicitly cleared (`""`) rather than populated with overlapping text.
+2. **Never focus a live region immediately after populating it.** All three functions now move focus to `#review-missed-button` when it's available (a real, actionable next step), or to `#question-heading` (plain text, not live) when it isn't. None of the three ever calls `focusElement(els.feedback)` anymore. `completeSprint()`'s prior fallback (`els.feedback`, for the rare case with no missed questions) was changed to `els.questionHeading` for the same reason, closing the one remaining case where Sprint mode still had this pattern.
+
+### Verification performed
+
+Automated only - JAWS was not run this session, consistent with this environment's standing limitation and the standing rule not to claim manual screen-reader testing that didn't happen. Three Playwright test scripts drive the actual running application through a real browser and inspect the real DOM and accessibility tree:
+
+- **A MutationObserver instrumented on `#feedback` and `#advance-status` before starting a real 5-question session**, counting every actual content change to each element. Confirmed: exactly one mutation of `#feedback` containing "Session complete" per completion (previously this pattern would have produced two separate live-region writes plus a focus-triggered re-read); `#advance-status` contains no completion text at all afterward.
+- **Focus target after completion** confirmed to never be `#feedback` or `#advance-status` themselves - either `#review-missed-button` (when missed questions exist) or `#question-heading` (when none do).
+- **Every interactive control's accessible name**, read directly from the browser's accessibility tree (not assumed from markup), checked for contamination: all mode radios ("Reinforce," "Practice," "Challenge," "Sprint") and all Setup panel buttons ("Start Lab Session," "Resume Current Session," "Open Statistics," "Review Missed Questions," "Reset Statistics," "Return Home") retain their normal names with no trace of the completion text.
+- **No `aria-describedby`/`aria-labelledby` anywhere in the document references `#feedback` or `#advance-status`** - confirmed programmatically, not just by manual code search.
+- **No duplicate IDs anywhere in the document.**
+- **Interacting with unrelated controls after completion** - clicking a different mode radio, a different WCAG principle checkbox, opening and returning from Statistics - produces **zero** re-announcements of the stale completion text, tested with the same MutationObserver instrumentation reset immediately before those interactions.
+- **The same checks repeated for Sprint completion** (`completeSprint()`, triggered via the Escape shortcut mid-Sprint) and for the Escape-from-Review-back-to-results path (`showStoredResults()`) - both confirmed to exhibit the identical single-announcement, non-live-focus behavior.
+- `node --check app.js` passes; zero JavaScript console or page errors across every test run.
+
+### What this does not claim
+
+This fix has not been confirmed with JAWS, NVDA, or VoiceOver. The automated evidence is strong - a live region provably changing exactly once, focus provably landing on a non-live element, every control's computed accessible name provably clean - but only real screen reader testing can confirm the actual spoken experience, especially the second reported symptom (contamination while navigating), whose precise mechanism was not conclusively identified, only reasoned about from the evidence available. **This is the top priority for the next session before any further content work resumes.**
+
+### Remaining work
+
+1. **Manual JAWS retest of the exact original scenario**: complete a real session with some questions missed, confirm the result is announced once, turn the Virtual Cursor on, and navigate through the entire completed Lab Home interface - mode radios, WCAG principle checkboxes, all Setup panel buttons - confirming no trace of the completion text anywhere. Repeat for Sprint completion.
+2. **If the contamination still reproduces on a real screen reader** even with this fix in place, that would mean the "still-flushing at navigation time" explanation was wrong, and the actual mechanism is something this session's DOM/ARIA-level investigation didn't surface - worth revisiting with the specific screen reader/browser combination and JAWS version in use, since this can be a version-specific behavior.
+3. **Content expansion (Expansion 8 and beyond)** remains paused pending that manual confirmation, per the explicit instruction that this bug fix takes priority.

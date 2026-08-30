@@ -782,12 +782,19 @@
         els.nextQuestionButton.hidden = false;
         els.skipButton.hidden = false;
         document.title = "Session Complete - WCAG Accessibility Lab - Open Door Design";
+        els.questionHeading.textContent = "Session Complete";
         els.questionText.textContent = "Session complete.";
         els.choices.innerHTML = "";
         state.lastResultsText = "Session complete. You answered " + String(state.sessionCorrect) + " correct and " + String(state.sessionIncorrect) + " incorrect in this session.";
         state.lastResultsStatus = buildResultsStatus();
-        els.feedback.textContent = state.lastResultsText;
-        els.advanceStatus.textContent = state.lastResultsStatus;
+        // Results are announced once, as a single combined update on one live
+        // region, rather than the results text and the next-step guidance
+        // firing as two separate, overlapping announcements on two different
+        // live regions at the same time - the same defect already fixed in
+        // completeSprint() below, applied here to the far more common regular
+        // (non-Sprint) session completion path, where it had been missed.
+        els.feedback.textContent = state.lastResultsText + " " + state.lastResultsStatus;
+        els.advanceStatus.textContent = "";
         setNextAvailable(false);
         hideQuizControls();
         if (els.returnResultsButton) {
@@ -801,7 +808,20 @@
         updateCounter();
         renderStatistics();
         saveState();
-        focusElement(els.feedback);
+        // Move focus to a real, actionable control when one is available, and
+        // never onto els.feedback itself: els.feedback is a role="status" live
+        // region, and moving focus onto an element immediately after setting
+        // its live-region text causes many screen readers to announce that
+        // same text a second time - once as the live-region update, once again
+        // as the newly-focused element's accessible content. Falling back to
+        // the heading (a plain, non-live element) when there's nothing more
+        // actionable to focus keeps that second, redundant read from happening
+        // in every case, not only when a review button happens to be present.
+        if (els.reviewMissedButton && !els.reviewMissedButton.hidden) {
+            focusElement(els.reviewMissedButton);
+        } else {
+            focusElement(els.questionHeading);
+        }
     }
 
     function updateCounter() {
@@ -1000,7 +1020,10 @@
         if (els.reviewMissedButton && !els.reviewMissedButton.hidden) {
             focusElement(els.reviewMissedButton);
         } else {
-            focusElement(els.feedback);
+            // Same reasoning as completeSession(): never fall back to
+            // els.feedback itself, since focusing an element right after
+            // setting its own live-region text announces that text twice.
+            focusElement(els.questionHeading);
         }
     }
 
@@ -1708,8 +1731,11 @@
         updateLocationText();
         els.questionText.textContent = "Session complete.";
         els.choices.innerHTML = "";
-        els.feedback.textContent = state.lastResultsText || "Session complete.";
-        els.advanceStatus.textContent = state.lastResultsStatus || buildResultsStatus();
+        // Same consolidation as completeSession() and completeSprint(): one
+        // combined message on the one live region, not two separate live
+        // regions firing overlapping text at the same time.
+        els.feedback.textContent = (state.lastResultsText || "Session complete.") + " " + (state.lastResultsStatus || buildResultsStatus());
+        els.advanceStatus.textContent = "";
         els.nextQuestionButton.hidden = false;
         els.skipButton.hidden = false;
         setNextAvailable(false);
@@ -1725,7 +1751,10 @@
         if (state.missedQuestions.length && els.reviewHeading) {
             focusElement(els.reviewHeading);
         } else {
-            focusElement(els.feedback);
+            // Never fall back to els.feedback itself - see the comment in
+            // completeSession() for why focusing a live region right after
+            // setting its text causes a duplicate announcement.
+            focusElement(els.questionHeading);
         }
         saveState();
     }
