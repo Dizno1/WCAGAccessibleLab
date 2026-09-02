@@ -8,6 +8,7 @@
     var state = {
         mode: "reinforce",
         questionStyle: "mode-default",
+        levelFilter: "all",
         domain: "domain1",
         domains: ["domain1"],
         sessionQuestions: [],
@@ -113,6 +114,7 @@
         els.statisticsButton = document.getElementById("statistics-button");
         els.practiceLength = document.getElementById("practice-length");
         els.questionStyle = document.getElementById("question-style");
+        els.levelFilter = document.getElementById("level-filter");
         els.difficultyFilter = document.getElementById("difficulty-filter");
         els.sprintLength = document.getElementById("sprint-length");
         els.questionHeading = document.getElementById("question-heading");
@@ -223,6 +225,12 @@
                 saveState();
             });
         }
+        if (els.levelFilter) {
+            els.levelFilter.addEventListener("change", function () {
+                state.levelFilter = els.levelFilter.value;
+                saveState();
+            });
+        }
         els.difficultyFilter.addEventListener("change", saveState);
         if (els.sprintLength) {
             els.sprintLength.addEventListener("change", saveState);
@@ -290,6 +298,9 @@
         });
         if (els.questionStyle) {
             els.questionStyle.value = state.questionStyle || "mode-default";
+        }
+        if (els.levelFilter) {
+            els.levelFilter.value = state.levelFilter || "all";
         }
     }
 
@@ -374,12 +385,16 @@
         if (els.questionStyle) {
             state.questionStyle = els.questionStyle.value;
         }
+        if (els.levelFilter) {
+            state.levelFilter = els.levelFilter.value;
+        }
         state.domains = selectedDomains;
         state.domain = selectedDomains[0];
     }
 
     function getAvailableQuestions() {
         var difficulty = els.difficultyFilter ? els.difficultyFilter.value : "all";
+        var levelFilter = state.levelFilter || "all";
         var questionStyle = state.questionStyle || "mode-default";
         var selectedDomains = Array.isArray(state.domains) && state.domains.length ? state.domains : [state.domain || "domain1"];
         var questions;
@@ -392,6 +407,10 @@
 
         return questions.filter(function (question) {
             if (selectedDomains.indexOf(question.domain) === -1) {
+                return false;
+            }
+
+            if (levelFilter !== "all" && question.level !== levelFilter) {
                 return false;
             }
 
@@ -2050,6 +2069,7 @@
             saved = JSON.parse(raw);
             state.mode = saved.mode || state.mode;
             state.questionStyle = saved.questionStyle || state.questionStyle;
+            state.levelFilter = saved.levelFilter || state.levelFilter;
             state.domain = saved.domain || state.domain;
             state.domains = Array.isArray(saved.domains) && saved.domains.length ? saved.domains : (saved.domain ? [saved.domain] : state.domains);
             state.sessionQuestions = Array.isArray(saved.sessionQuestions) ? saved.sessionQuestions : [];

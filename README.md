@@ -437,3 +437,7 @@ The Lab again supports deliberate WCAG learning in both directions before scenar
 - Mixed - draws from the complete question bank.
 
 Question Style is independent of the selected WCAG Principles and difficulty filter. Sprint timing remains available with any Question Style.
+
+## Restored learner controls
+
+The Lab setup now includes independent **Question Style** and **WCAG Level** selectors. The WCAG Level selector supports All levels, Level A, Level AA, and Level AAA. Level filtering is exact: selecting Level AA presents questions whose Success Criterion is Level AA; selecting Level AAA presents Level AAA criteria. It works alongside learning mode, question style, WCAG principle, and difficulty rather than replacing those controls.
