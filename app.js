@@ -439,6 +439,37 @@
         });
     }
 
+    function getFullCriterionDefinition(criterion) {
+        var definition;
+
+        if (!criterion) {
+            return "";
+        }
+
+        // Reverse-definition questions must use the complete WCAG criterion
+        // text. shortDescription is intentionally abbreviated for many
+        // criteria and can stop before required exceptions, conditions, or
+        // list items (for example 3.3.6 Error Prevention (All)).
+        definition = criterion.description || criterion.shortDescription || "";
+        return String(definition)
+            .replace(/\r\n/g, "\n")
+            .split(/\n+/)
+            .map(function (line) {
+                return line.replace(/\s+/g, " ").trim();
+            })
+            .filter(function (line) {
+                return Boolean(line);
+            })
+            .map(function (line) {
+                if (line.length <= 60 && !/[.!?:;]$/.test(line)) {
+                    return line + ":";
+                }
+                return line;
+            })
+            .join(" ")
+            .trim();
+    }
+
     function buildDefinitionChoiceQuestions() {
         var criteriaByNumber = {};
         var recallByNumber = {};
@@ -464,7 +495,7 @@
                 return null;
             }
 
-            correctDefinition = criterion.shortDescription || criterion.description;
+            correctDefinition = getFullCriterionDefinition(criterion);
             candidates = (window.WCAG_DATA || []).filter(function (item) {
                 return item.scNumber !== scNumber && item.principle === criterion.principle;
             });
@@ -474,7 +505,7 @@
                 });
             }
             distractors = shuffle(candidates).slice(0, 3).map(function (item) {
-                return item.shortDescription || item.description;
+                return getFullCriterionDefinition(item);
             });
 
             return {

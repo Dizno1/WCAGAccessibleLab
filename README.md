@@ -432,7 +432,7 @@ The Lab again supports deliberate WCAG learning in both directions before scenar
 
 - Learning Mode Default - preserves the existing Reinforce, Practice, Challenge, and Sprint question selection behavior.
 - Success Criterion from Definition - presents a WCAG requirement and asks the learner to identify the matching Success Criterion.
-- Definition from Success Criterion - presents the Success Criterion number and name and asks the learner to identify its definition. These reverse questions are generated from the canonical WCAG data already included in the Lab.
+- Definition from Success Criterion - presents the Success Criterion number and name and asks the learner to identify its definition. These reverse questions are generated from the canonical WCAG data already included in the Lab and use each criterion's complete description, including required conditions, exceptions, and list items rather than an abbreviated lead-in.
 - Scenarios - uses application and professional workflow questions while excluding basic recall and recognition items.
 - Mixed - draws from the complete question bank.
 
